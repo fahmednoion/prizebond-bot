@@ -2,7 +2,7 @@ const fs = require('fs');
 const TelegramBot = require('node-telegram-bot-api');
 
 // Replace with your actual Telegram bot token
-const token = 'YOUR_TELEGRAM_BOT_TOKEN';
+const token = '8326711586:AAEja1HU4zNI7LjxpXqpKx0Zk_dOAO8gI1g';
 const bot = new TelegramBot(token, { polling: true });
 
 // Load prize bond data
@@ -62,3 +62,4 @@ bot.onText(/\/check (.+)/, (msg, match) => {
     bot.sendMessage(chatId, `❌ No match found for ${number}.`);
   }
 });
+
