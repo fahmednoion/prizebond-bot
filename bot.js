@@ -1,65 +1,89 @@
 const fs = require('fs');
+const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 
-// Replace with your actual Telegram bot token
-const token = '8326711586:AAEja1HU4zNI7LjxpXqpKx0Zk_dOAO8gI1g';
+// Read your Telegram Bot Token from environment variable
+const token = process.env.8326711586:AAEja1HU4zNI7LjxpXqpKx0Zk_dOAO8gI1gN;
+if (!token) {
+  console.error("Error: TELEGRAM_TOKEN is not set in environment variables.");
+  process.exit(1);
+}
+
 const bot = new TelegramBot(token, { polling: true });
 
 // Load prize bond data
-const prizebondData = JSON.parse(fs.readFileSync('prizebond.json'));
+const prizebondFile = path.join(__dirname, 'prizebond.json');
+const prizebondData = JSON.parse(fs.readFileSync(prizebondFile, 'utf-8'));
 
-// Helper function to check if a number exists in any draw
-function checkPrizeBond(number) {
-  const results = [];
+// Users saved numbers
+const usersFile = path.join(__dirname, 'users.json');
 
-  prizebondData.draws.forEach(draw => {
-    let prizeCategory = null;
-
-    for (const [category, numbers] of Object.entries(draw)) {
-      if (category === "drawNo" || category === "date") continue;
-
-      if (numbers.includes(number)) {
-        prizeCategory = category;
-        break;
-      }
-    }
-
-    if (prizeCategory) {
-      results.push({
-        drawNo: draw.drawNo,
-        date: draw.date,
-        prize: prizeCategory
-      });
-    }
-  });
-
-  return results;
+// Helper to load user data
+function loadUsers() {
+  if (!fs.existsSync(usersFile)) return {};
+  return JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
 }
 
-// Bot commands
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Welcome! Send me a prize bond number to check if it has won.");
+// Helper to save user data
+function saveUsers(users) {
+  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+}
+
+// Command: /store
+bot.onText(/\/store (.+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const numbers = match[1].split(',').map(n => n.trim());
+
+  const users = loadUsers();
+  users[chatId] = numbers;
+  saveUsers(users);
+
+  bot.sendMessage(chatId, `✅ Stored your numbers: ${numbers.join(', ')}`);
 });
 
-bot.onText(/\/check (.+)/, (msg, match) => {
+// Command: /check
+bot.onText(/\/check/, (msg) => {
   const chatId = msg.chat.id;
-  const number = match[1].trim();
+  const users = loadUsers();
+  const savedNumbers = users[chatId];
 
-  if (!/^\d+$/.test(number)) {
-    bot.sendMessage(chatId, "Please enter a valid numeric prize bond number.");
+  if (!savedNumbers || savedNumbers.length === 0) {
+    bot.sendMessage(chatId, `ℹ️ You have not stored any numbers yet. Use /store command.`);
     return;
   }
 
-  const results = checkPrizeBond(number);
+  let results = [];
 
-  if (results.length > 0) {
-    let response = `🎉 Prize bond number ${number} has won in:\n`;
-    results.forEach(res => {
-      response += `Draw #${res.drawNo} (${res.date}) - ${res.prize} Prize\n`;
-    });
-    bot.sendMessage(chatId, response);
+  for (const draw of prizebondData) {
+    for (const prize in draw) {
+      if (prize === 'DrawNo') continue;
+      const drawNumbers = Array.isArray(draw[prize]) ? draw[prize] : [draw[prize]];
+      const matched = savedNumbers.filter(num => drawNumbers.includes(num));
+      if (matched.length > 0) {
+        results.push(`Draw ${draw.DrawNo} - ${prize} Prize: ${matched.join(', ')}`);
+      }
+    }
+  }
+
+  if (results.length === 0) {
+    bot.sendMessage(chatId, `❌ No match found for your stored numbers.`);
   } else {
-    bot.sendMessage(chatId, `❌ No match found for ${number}.`);
+    bot.sendMessage(chatId, `🎉 Matches found:\n\n${results.join('\n')}`);
   }
 });
 
+// Command: /help
+bot.onText(/\/help/, (msg) => {
+  const chatId = msg.chat.id;
+  const helpMessage = `
+Welcome to Prize Bond Bot!
+
+Commands:
+/store <num1>, <num2>, ... - Save your numbers
+/check - Check stored numbers against latest draws
+/help - Show this help message
+`;
+  bot.sendMessage(chatId, helpMessage);
+});
+
+console.log("🤖 PrizeBond Bot is running...");
