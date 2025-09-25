@@ -1,0 +1,14 @@
+{
+  "name": "prizebond-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot to check prize bond numbers",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "author": "FANoion",
+  "license": "MIT",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.61.0"
+  }
+}
