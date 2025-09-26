@@ -3,7 +3,7 @@ const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 
 // Read your Telegram Bot Token from environment variable
-const token = process.env.YOUR_TELEGRAM_TOKEN_HERE;
+const token = process.env.BOT_TOKEN;
 if (!token) {
   console.error("Error: TELEGRAM_TOKEN is not set in environment variables.");
   process.exit(1);
@@ -87,4 +87,5 @@ Commands:
 });
 
 console.log("🤖 PrizeBond Bot is running...");
+
 
