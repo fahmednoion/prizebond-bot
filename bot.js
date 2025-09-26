@@ -106,6 +106,17 @@ bot.onText(/\/start/, (msg) => {
 
 console.log("🤖 PrizeBond Bot is running...");
 
+const express = require('express')
+const app = express()
+const port = process.env.PORT || 4000 
+
+app.get('/', (req, res) => {
+  res.send('🤖 PrizeBond Bot is running!')
+})
+
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`)
+});
 
 
 
