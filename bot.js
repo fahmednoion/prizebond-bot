@@ -40,7 +40,41 @@ bot.onText(/\/store (.+)/, (msg, match) => {
 
   bot.sendMessage(chatId, `✅ Stored your numbers: ${numbers.join(', ')}`);
 });
+// Command to view stored prize bond numbers
+bot.onText(/\/myprizebond/, (msg) => {
+    const chatId = msg.chat.id.toString();
 
+    if (!userData[chatId] || userData[chatId].length === 0) {
+        bot.sendMessage(chatId, "😢 You have no stored prize bond numbers. Use `/storeprizebond <numbers>` to store some.");
+        return;
+    }
+
+    bot.sendMessage(chatId, `📋 Your stored prize bond numbers:\n\n${userData[chatId].join(', ')}`);
+});
+
+// Command to delete prize bond numbers
+bot.onText(/\/delete (.+)/, (msg, match) => {
+    const chatId = msg.chat.id.toString();
+    const input = match[1].trim();
+
+    if (!userData[chatId] || userData[chatId].length === 0) {
+        bot.sendMessage(chatId, "😢 You have no stored prize bond numbers to delete.");
+        return;
+    }
+
+    if (input.toLowerCase() === 'all') {
+        userData[chatId] = [];
+        saveUserData();
+        bot.sendMessage(chatId, "🗑️ All your stored prize bond numbers have been deleted.");
+        return;
+    }
+
+    const numbersToDelete = input.split(',').map(num => num.trim());
+    userData[chatId] = userData[chatId].filter(num => !numbersToDelete.includes(num));
+    saveUserData();
+
+    bot.sendMessage(chatId, `🗑️ Deleted prize bond numbers: ${numbersToDelete.join(', ')}`);
+});
 // Command: /check
 bot.onText(/\/check/, (msg) => {
   const chatId = msg.chat.id;
@@ -125,6 +159,7 @@ function startBot() {
   const TelegramBot = require('node-telegram-bot-api');
   const token = process.env.BOT_TOKEN;
   const bot = new TelegramBot(token, { polling: true });
+
 
 
 
