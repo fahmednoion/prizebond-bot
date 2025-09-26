@@ -83,6 +83,26 @@ Commands:
 /check - Check stored numbers against latest draws
 /help - Show this help message
 `;
+  bot.sendMessage(chatId, helpMessage);
+});
+// Author command
+bot.onText(/\/author/, (msg) => {
+    const chatId = msg.chat.id;
+    const author = `
+**To Know About Author Visit Website:**
+⚜️ https://prizebond.free.nf ⚜️
+    `;
+    bot.sendMessage(chatId, author);
+});
+
+// Start command
+bot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    const start = `
+**Type or press on 👉 /help 👈 to start**
+    `;
+    bot.sendMessage(chatId, start);
+});
 
 console.log("🤖 PrizeBond Bot is running...");
 
@@ -97,6 +117,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Web server running on port ${PORT}`);
 });
+
 
 
 
