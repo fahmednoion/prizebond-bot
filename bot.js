@@ -106,17 +106,26 @@ bot.onText(/\/start/, (msg) => {
 
 console.log("🤖 PrizeBond Bot is running...");
 
-const express = require('express')
-const app = express()
-const port = process.env.PORT || 4000 
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('🤖 PrizeBond Bot is running!')
-})
-
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+  res.send('🤖 PrizeBond Bot is running!');
 });
+
+app.listen(PORT, () => {
+  console.log(`Web server running on port ${PORT}`);
+
+  // Start the bot after Express is ready
+  startBot();
+});
+
+function startBot() {
+  const TelegramBot = require('node-telegram-bot-api');
+  const token = process.env.BOT_TOKEN;
+  const bot = new TelegramBot(token, { polling: true });
+
 
 
 
