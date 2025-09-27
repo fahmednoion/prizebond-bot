@@ -2,8 +2,27 @@ const TelegramBot = require('node-telegram-bot-api');
 const token = process.env.BOT_TOKEN; // Use environment variable
 const bot = new TelegramBot(token, { polling: true });
 
-// Store user data in memory (no file storage)
-let userData = {};
+// Initialize Firebase
+const admin = require('firebase-admin');
+
+admin.initializeApp({
+  credential: admin.credential.cert({
+    type: process.env.FIREBASE_TYPE,
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Fix line breaks
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID,
+    auth_uri: process.env.FIREBASE_AUTH_URI,
+    token_uri: process.env.FIREBASE_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_CERT_URL,
+    client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
+  }),
+  databaseURL: process.env.FIREBASE_DATABASE_URL
+});
+
+const db = admin.database();
+
 
 // Prize bond draw data (directly included in the code)
 const prizeBondDraws = [
@@ -142,244 +161,221 @@ const prizeBondDraws = [
 ];
 
 // Command to store prize bond numbers
-bot.onText(/\/storeprizebond (.+)/, (msg, match) => {
-    const chatId = msg.chat.id.toString();
-    const inputNumbers = match[1].split(',').map(num => num.trim());
-    const validNumbers = [];
-    const invalidNumbers = [];
-    inputNumbers.forEach(number => {
-        if (/^\d{1,10}$/.test(number)) {
-            validNumbers.push(number);
-        } else {
-            invalidNumbers.push(number);
-        }
-    });
-    if (invalidNumbers.length > 0) {
-        bot.sendMessage(chatId, `🚫 Invalid prize bond numbers (must be up to 10 digits): ${invalidNumbers.join(', ')}`);
+bot.onText(/\/storeprizebond (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id.toString();
+  const inputNumbers = match[1].split(',').map(num => num.trim());
+  const validNumbers = [];
+  const invalidNumbers = [];
+
+  // Validate numbers
+  inputNumbers.forEach(number => {
+    if (/^\d{1,10}$/.test(number)) {
+      validNumbers.push(number);
+    } else {
+      invalidNumbers.push(number);
     }
-    if (validNumbers.length === 0) {
-        bot.sendMessage(chatId, "🚫 No valid prize bond numbers provided.");
-        return;
+  });
+
+  // Send error for invalid numbers
+  if (invalidNumbers.length > 0) {
+    bot.sendMessage(chatId, `🚫 Invalid prize bond numbers: ${invalidNumbers.join(', ')}`);
+  }
+
+  // Check if any valid numbers
+  if (validNumbers.length === 0) {
+    bot.sendMessage(chatId, "🚫 No valid prize bond numbers provided.");
+    return;
+  }
+
+  try {
+    // Get existing numbers from Firebase
+    const snapshot = await db.ref(`users/${chatId}`).once('value');
+    const existingNumbers = snapshot.val() || [];
+
+    // Check if user exceeds 100 numbers
+    if (existingNumbers.length + validNumbers.length > 100) {
+      bot.sendMessage(chatId, "🚫 You can store a maximum of 100 prize bond numbers.");
+      return;
     }
-    if (!userData[chatId]) {
-        userData[chatId] = [];
-    }
-    if (userData[chatId].length + validNumbers.length > 100) {
-        bot.sendMessage(chatId, "🚫 You can store a maximum of 100 prize bond numbers.");
-        return;
-    }
-    userData[chatId] = [...new Set([...userData[chatId], ...validNumbers])];
-    bot.sendMessage(chatId, `📝 Your prize bond numbers have been stored: ${validNumbers.join(', ')}`);
+
+    // Merge and deduplicate numbers
+    const updatedNumbers = [...new Set([...existingNumbers, ...validNumbers])];
+
+    // Save to Firebase
+    await db.ref(`users/${chatId}`).set(updatedNumbers);
+
+    bot.sendMessage(chatId, `📝 Stored: ${validNumbers.join(', ')}`);
+  } catch (err) {
+    console.error("Firebase error:", err);
+    bot.sendMessage(chatId, "❌ Failed to store numbers. Please try again.");
+  }
 });
 
 // Command to view stored prize bond numbers
-bot.onText(/\/myprizebond/, (msg) => {
-    const chatId = msg.chat.id.toString();
-    if (!userData[chatId] || userData[chatId].length === 0) {
-        bot.sendMessage(chatId, "😢 You have no stored prize bond numbers. Use `/storeprizebond <numbers>` to store some.");
-        return;
+bot.onText(/\/myprizebond/, async (msg) => {
+  const chatId = msg.chat.id.toString();
+
+  try {
+    const snapshot = await db.ref(`users/${chatId}`).once('value');
+    const userNumbers = snapshot.val() || [];
+
+    if (userNumbers.length === 0) {
+      bot.sendMessage(chatId, "😢 You have no stored prize bond numbers.");
+      return;
     }
-    bot.sendMessage(chatId, `📋 Your stored prize bond numbers:\n\n${userData[chatId].join(', ')}`);
+
+    bot.sendMessage(chatId, `📋 Your stored numbers:\n\n${userNumbers.join(', ')}`);
+  } catch (err) {
+    console.error("Firebase error:", err);
+    bot.sendMessage(chatId, "❌ Failed to fetch numbers. Please try again.");
+  }
 });
 
 // Command to delete prize bond numbers
-bot.onText(/\/delete (.+)/, (msg, match) => {
-    const chatId = msg.chat.id.toString();
-    const input = match[1].trim();
-    if (!userData[chatId] || userData[chatId].length === 0) {
-        bot.sendMessage(chatId, "😢 You have no stored prize bond numbers to delete.");
-        return;
-    }
-    if (input.toLowerCase() === 'all') {
-        userData[chatId] = [];
-        bot.sendMessage(chatId, "🗑️ All your stored prize bond numbers have been deleted.");
-        return;
-    }
-    const numbersToDelete = input.split(',').map(num => num.trim());
-    userData[chatId] = userData[chatId].filter(num => !numbersToDelete.includes(num));
-    bot.sendMessage(chatId, `🗑️ Deleted prize bond numbers: ${numbersToDelete.join(', ')}`);
-});
+bot.onText(/\/delete (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id.toString();
+  const input = match[1].trim();
 
-// Command to check specific prize bond numbers against all draws
-bot.onText(/\/check (.+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const inputNumbers = match[1].split(',').map(num => num.trim());
-    let response = "";
-    inputNumbers.forEach(number => {
-        let foundInAnyDraw = false;
-        let drawResponse = `📜 **Results for Prize Bond Number ${number}:**\n`;
-        prizeBondDraws.forEach(draw => {
-            let found = false;
-            let prizeLevel = "";
-            if (draw.firstPrize.includes(number)) {
-                found = true;
-                prizeLevel = "1st Prize";
-            } else if (draw.secondPrize.includes(number)) {
-                found = true;
-                prizeLevel = "2nd Prize";
-            } else if (draw.thirdPrize.includes(number)) {
-                found = true;
-                prizeLevel = "3rd Prize";
-            } else if (draw.fourthPrize.includes(number)) {
-                found = true;
-                prizeLevel = "4th Prize";
-            } else if (draw.fifthPrize.includes(number)) {
-                found = true;
-                prizeLevel = "5th Prize";
-            }
-            if (found) {
-                foundInAnyDraw = true;
-                drawResponse += `🎉 **${draw.drawNumber}**: **Match found!** (${prizeLevel})\n`;
-            }
-        });
-        if (!foundInAnyDraw) {
-            drawResponse += `😢 No match found in any draw.\n`;
-        }
-        response += drawResponse + "\n";
-    });
-    bot.sendMessage(chatId, response);
+  try {
+    const snapshot = await db.ref(`users/${chatId}`).once('value');
+    let userNumbers = snapshot.val() || [];
+
+    if (userNumbers.length === 0) {
+      bot.sendMessage(chatId, "😢 You have no stored numbers to delete.");
+      return;
+    }
+
+    if (input.toLowerCase() === 'all') {
+      await db.ref(`users/${chatId}`).remove();
+      bot.sendMessage(chatId, "🗑️ All your stored numbers have been deleted.");
+      return;
+    }
+
+    const numbersToDelete = input.split(',').map(num => num.trim());
+    const updatedNumbers = userNumbers.filter(num => !numbersToDelete.includes(num));
+
+    await db.ref(`users/${chatId}`).set(updatedNumbers);
+    bot.sendMessage(chatId, `🗑️ Deleted: ${numbersToDelete.join(', ')}`);
+  } catch (err) {
+    console.error("Firebase error:", err);
+    bot.sendMessage(chatId, "❌ Failed to delete numbers. Please try again.");
+  }
 });
 
 // Command to check stored prize bond numbers against all draws
-bot.onText(/\/checkmyprizebond/, (msg) => {
-    const chatId = msg.chat.id.toString();
-    if (!userData[chatId] || userData[chatId].length === 0) {
-        bot.sendMessage(chatId, "😢 You have no stored prize bond numbers. Use `/storeprizebond <numbers>` to store some.");
-        return;
+bot.onText(/\/checkmyprizebond/, async (msg) => {
+  const chatId = msg.chat.id.toString();
+
+  try {
+    const snapshot = await db.ref(`users/${chatId}`).once('value');
+    const userNumbers = snapshot.val() || [];
+
+    if (userNumbers.length === 0) {
+      bot.sendMessage(chatId, "😢 You have no stored numbers.");
+      return;
     }
+
     let response = "";
-    userData[chatId].forEach(number => {
-        let foundInAnyDraw = false;
-        let drawResponse = `📜 **Results for Prize Bond Number ${number}:**\n`;
-        prizeBondDraws.forEach(draw => {
-            let found = false;
-            let prizeLevel = "";
-            if (draw.firstPrize.includes(number)) {
-                found = true;
-                prizeLevel = "1st Prize";
-            } else if (draw.secondPrize.includes(number)) {
-                found = true;
-                prizeLevel = "2nd Prize";
-            } else if (draw.thirdPrize.includes(number)) {
-                found = true;
-                prizeLevel = "3rd Prize";
-            } else if (draw.fourthPrize.includes(number)) {
-                found = true;
-                prizeLevel = "4th Prize";
-            } else if (draw.fifthPrize.includes(number)) {
-                found = true;
-                prizeLevel = "5th Prize";
-            }
-            if (found) {
-                foundInAnyDraw = true;
-                drawResponse += `🎉 **${draw.drawNumber}**: **Match found!** (${prizeLevel})\n`;
-            }
-        });
-        if (!foundInAnyDraw) {
-            drawResponse += `😢 No match found in any draw.\n`;
+    for (const number of userNumbers) {
+      let foundInAnyDraw = false;
+      let drawResponse = `📜 **Results for ${number}:**\n`;
+
+      for (const draw of prizeBondDraws) {
+        if (draw.firstPrize.includes(number)) {
+          drawResponse += `🎉 ${draw.drawNumber}: 1st Prize\n`;
+          foundInAnyDraw = true;
+        } else if (draw.secondPrize.includes(number)) {
+          drawResponse += `🎉 ${draw.drawNumber}: 2nd Prize\n`;
+          foundInAnyDraw = true;
+        } else if (draw.thirdPrize.includes(number)) {
+          drawResponse += `🎉 ${draw.drawNumber}: 3rd Prize\n`;
+          foundInAnyDraw = true;
+        } else if (draw.fourthPrize.includes(number)) {
+          drawResponse += `🎉 ${draw.drawNumber}: 4th Prize\n`;
+          foundInAnyDraw = true;
+        } else if (draw.fifthPrize.includes(number)) {
+          drawResponse += `🎉 ${draw.drawNumber}: 5th Prize\n`;
+          foundInAnyDraw = true;
         }
-        response += drawResponse + "\n";
-    });
+      }
+
+      if (!foundInAnyDraw) {
+        drawResponse += "😢 No match found.\n";
+      }
+
+      response += drawResponse + "\n";
+    }
+
     bot.sendMessage(chatId, response);
+  } catch (err) {
+    console.error("Firebase error:", err);
+    bot.sendMessage(chatId, "❌ Failed to check numbers. Please try again.");
+  }
 });
 
 // Command to list all available draws
 bot.onText(/\/draws/, (msg) => {
-    const chatId = msg.chat.id;
-    let response = "📜 **List of Prize Bond Draws:**\n\n";
-    prizeBondDraws.forEach(draw => {
-        response += `- ${draw.drawNumber}\n`;
-    });
-    bot.sendMessage(chatId, response);
+  const chatId = msg.chat.id;
+  let response = "📜 **List of Prize Bond Draws:**\n\n";
+  prizeBondDraws.forEach(draw => {
+    response += `- ${draw.drawNumber}\n`;
+  });
+  bot.sendMessage(chatId, response);
 });
 
 // Command to view details of a specific draw
 bot.onText(/\/draw (\d+)/, (msg, match) => {
-    const chatId = msg.chat.id;
-    const drawNumber = match[1].trim();
-    const draw = prizeBondDraws.find(d => d.drawNumber.includes(`${drawNumber}th Draw`));
-    if (!draw) {
-        bot.sendMessage(chatId, "🚫 Draw not found. Use `/draws` to see available draws.");
-        return;
-    }
-    let response = `📜 **${draw.drawNumber}**\n\n`;
-    response += `🥇 **1st Prize:** ${draw.firstPrize.join(', ')}\n`;
-    response += `🥈 **2nd Prize:** ${draw.secondPrize.join(', ')}\n`;
-    response += `🥉 **3rd Prize:** ${draw.thirdPrize.join(', ')}\n`;
-    response += `🏅 **4th Prize:** ${draw.fourthPrize.join(', ')}\n`;
-    response += `🎖️ **5th Prize:** ${draw.fifthPrize.join(', ')}`;
-    bot.sendMessage(chatId, response);
+  const chatId = msg.chat.id;
+  const drawNumber = match[1].trim();
+  const draw = prizeBondDraws.find(d => d.drawNumber.includes(`${drawNumber}th Draw`));
+  if (!draw) {
+    bot.sendMessage(chatId, "🚫 Draw not found. Use `/draws` to see available draws.");
+    return;
+  }
+  let response = `📜 **${draw.drawNumber}**\n\n`;
+  response += `🥇 **1st Prize:** ${draw.firstPrize.join(', ')}\n`;
+  response += `🥈 **2nd Prize:** ${draw.secondPrize.join(', ')}\n`;
+  response += `🥉 **3rd Prize:** ${draw.thirdPrize.join(', ')}\n`;
+  response += `🏅 **4th Prize:** ${draw.fourthPrize.join(', ')}\n`;
+  response += `🎖️ **5th Prize:** ${draw.fifthPrize.join(', ')}`;
+  bot.sendMessage(chatId, response);
 });
 
 // Author command
 bot.onText(/\/author/, (msg) => {
-    const chatId = msg.chat.id;
-    const author = `
-**To Know About Author Visit Website:**
+  const chatId = msg.chat.id;
+  const author = `
+⚜️ Faysal Ahmed Noion ⚜️
+**To Know Details About Author Visit Website:**
 ⚜️ https://prizebond.free.nf ⚜️
- To activate the inactive chatbot, please visit 👉 https://prizebond-bot.onrender.com 👈
-    `;
-    bot.sendMessage(chatId, author, { parse_mode: 'Markdown' });
+  `;
+  bot.sendMessage(chatId, author, { parse_mode: 'Markdown' });
 });
 
 // Start command
 bot.onText(/\/start/, (msg) => {
-    const chatId = msg.chat.id;
-    const start = `
+  const chatId = msg.chat.id;
+  const start = `
 **Type or press on 👉 /help 👈 to start**
-    `;
-    bot.sendMessage(chatId, start);
+  `;
+  bot.sendMessage(chatId, start);
 });
 
 // Help command
 bot.onText(/\/help/, (msg) => {
-    const chatId = msg.chat.id;
-    const helpMessage = `
+  const chatId = msg.chat.id;
+  const helpMessage = `
 📌 **Available Commands:**
-
-/storeprizebond <numbers> - Store your prize bond numbers (comma-separated, up to 10 digits each).
+/storeprizebond <numbers> - Store your prize bond numbers (comma-separated).
 /myprizebond - View your stored prize bond numbers.
 /delete <numbers> - Delete specific prize bond numbers (comma-separated) or use "all" to delete all.
 /checkmyprizebond - Check your stored prize bond numbers against all draws.
-/check <numbers> - Check specific prize bond numbers (comma-separated, up to 10 digits each) against all draws.
+/check <numbers> - Check specific prize bond numbers (comma-separated) against all draws.
 /draws - List all available prize bond draws.
 /draw <draw_number> - View details of a specific draw (e.g., /draw 111).
-** To Activate the inactive chatbot, please visit https://prizebond-bot.onrender.com **
-    `;
-    bot.sendMessage(chatId, helpMessage);
+To Activate Inactive chatbot, please visit https://prizebond-bot.onrender.com
+  `;
+  bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
 });
 
 console.log('Bot is running...');
-
-// Express server for Render.com
-const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Prize Bond Bot</title>
-        </head>
-        <body>
-            <h1>🎉 Prize Bond Checker Bot</h1>
-            <p>This bot is running and ready to check your prize bond numbers!</p>
-            <p>Use it in Telegram: <a href="https://t.me/prizebondbot">@prizebondbot</a></p>
-        </body>
-        </html>
-    `);
-});
-
-// Bind to 0.0.0.0 and the PORT environment variable
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is running on port ${PORT}`);
-});
-
-
-
-
-
-
-
