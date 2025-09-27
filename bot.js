@@ -344,6 +344,7 @@ bot.onText(/\/help/, (msg) => {
 /check <numbers> - Check specific prize bond numbers (comma-separated, up to 10 digits each) against all draws.
 /draws - List all available prize bond draws.
 /draw <draw_number> - View details of a specific draw (e.g., /draw 111).
+** To Activate the inactive chatbot, please visit https://prizebond-bot.onrender.com **
     `;
     bot.sendMessage(chatId, helpMessage);
 });
@@ -375,6 +376,7 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
 
 
 
