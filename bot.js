@@ -1,7 +1,9 @@
 const TelegramBot = require('node-telegram-bot-api');
-const fs = require('fs');
 const token = process.env.BOT_TOKEN; // Use environment variable
 const bot = new TelegramBot(token, { polling: true });
+
+// Store user data in memory (no file storage)
+let userData = {};
 
 // Prize bond draw data (directly included in the code)
 const prizeBondDraws = [
@@ -139,20 +141,6 @@ const prizeBondDraws = [
     // Add more draws here as needed
 ];
 
-// Store user data in memory
-let userData = {};
-
-// Load user data from file
-let userData = {};
-if (fs.existsSync(userDataFile)) {
-    userData = JSON.parse(fs.readFileSync(userDataFile, 'utf8'));
-}
-
-// Function to save user data to file
-function saveUserData() {
-    fs.writeFileSync(userDataFile, JSON.stringify(userData, null, 2));
-}
-
 // Command to store prize bond numbers
 bot.onText(/\/storeprizebond (.+)/, (msg, match) => {
     const chatId = msg.chat.id.toString();
@@ -216,17 +204,13 @@ bot.onText(/\/delete (.+)/, (msg, match) => {
 bot.onText(/\/check (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const inputNumbers = match[1].split(',').map(num => num.trim());
-
     let response = "";
-
     inputNumbers.forEach(number => {
         let foundInAnyDraw = false;
         let drawResponse = `📜 **Results for Prize Bond Number ${number}:**\n`;
-
         prizeBondDraws.forEach(draw => {
             let found = false;
             let prizeLevel = "";
-
             if (draw.firstPrize.includes(number)) {
                 found = true;
                 prizeLevel = "1st Prize";
@@ -243,42 +227,33 @@ bot.onText(/\/check (.+)/, (msg, match) => {
                 found = true;
                 prizeLevel = "5th Prize";
             }
-
             if (found) {
                 foundInAnyDraw = true;
                 drawResponse += `🎉 **${draw.drawNumber}**: **Match found!** (${prizeLevel})\n`;
             }
         });
-
         if (!foundInAnyDraw) {
             drawResponse += `😢 No match found in any draw.\n`;
         }
-
         response += drawResponse + "\n";
     });
-
     bot.sendMessage(chatId, response);
 });
 
 // Command to check stored prize bond numbers against all draws
 bot.onText(/\/checkmyprizebond/, (msg) => {
     const chatId = msg.chat.id.toString();
-
     if (!userData[chatId] || userData[chatId].length === 0) {
         bot.sendMessage(chatId, "😢 You have no stored prize bond numbers. Use `/storeprizebond <numbers>` to store some.");
         return;
     }
-
     let response = "";
-
     userData[chatId].forEach(number => {
         let foundInAnyDraw = false;
         let drawResponse = `📜 **Results for Prize Bond Number ${number}:**\n`;
-
         prizeBondDraws.forEach(draw => {
             let found = false;
             let prizeLevel = "";
-
             if (draw.firstPrize.includes(number)) {
                 found = true;
                 prizeLevel = "1st Prize";
@@ -295,20 +270,16 @@ bot.onText(/\/checkmyprizebond/, (msg) => {
                 found = true;
                 prizeLevel = "5th Prize";
             }
-
             if (found) {
                 foundInAnyDraw = true;
                 drawResponse += `🎉 **${draw.drawNumber}**: **Match found!** (${prizeLevel})\n`;
             }
         });
-
         if (!foundInAnyDraw) {
             drawResponse += `😢 No match found in any draw.\n`;
         }
-
         response += drawResponse + "\n";
     });
-
     bot.sendMessage(chatId, response);
 });
 
@@ -316,11 +287,9 @@ bot.onText(/\/checkmyprizebond/, (msg) => {
 bot.onText(/\/draws/, (msg) => {
     const chatId = msg.chat.id;
     let response = "📜 **List of Prize Bond Draws:**\n\n";
-
     prizeBondDraws.forEach(draw => {
         response += `- ${draw.drawNumber}\n`;
     });
-
     bot.sendMessage(chatId, response);
 });
 
@@ -329,19 +298,16 @@ bot.onText(/\/draw (\d+)/, (msg, match) => {
     const chatId = msg.chat.id;
     const drawNumber = match[1].trim();
     const draw = prizeBondDraws.find(d => d.drawNumber.includes(`${drawNumber}th Draw`));
-
     if (!draw) {
         bot.sendMessage(chatId, "🚫 Draw not found. Use `/draws` to see available draws.");
         return;
     }
-
     let response = `📜 **${draw.drawNumber}**\n\n`;
     response += `🥇 **1st Prize:** ${draw.firstPrize.join(', ')}\n`;
     response += `🥈 **2nd Prize:** ${draw.secondPrize.join(', ')}\n`;
     response += `🥉 **3rd Prize:** ${draw.thirdPrize.join(', ')}\n`;
     response += `🏅 **4th Prize:** ${draw.fourthPrize.join(', ')}\n`;
     response += `🎖️ **5th Prize:** ${draw.fifthPrize.join(', ')}`;
-
     bot.sendMessage(chatId, response);
 });
 
@@ -350,9 +316,9 @@ bot.onText(/\/author/, (msg) => {
     const chatId = msg.chat.id;
     const author = `
 **To Know About Author Visit Website:**
-⚜️ https://prizebond.free.nf ⚜️
+⚜️ [https://prizebond.free.nf](https://prizebond.free.nf) ⚜️
     `;
-    bot.sendMessage(chatId, author);
+    bot.sendMessage(chatId, author, { parse_mode: 'Markdown' });
 });
 
 // Start command
@@ -369,7 +335,6 @@ bot.onText(/\/help/, (msg) => {
     const chatId = msg.chat.id;
     const helpMessage = `
 📌 **Available Commands:**
-
 /storeprizebond <numbers> - Store your prize bond numbers (comma-separated, up to 10 digits each).
 /myprizebond - View your stored prize bond numbers.
 /delete <numbers> - Delete specific prize bond numbers (comma-separated) or use "all" to delete all.
@@ -379,41 +344,35 @@ bot.onText(/\/help/, (msg) => {
 /draw <draw_number> - View details of a specific draw (e.g., /draw 111).
 /author - Know about the author.
 /help - Show this help message.
-♻️ If you find the chatbot inactive, please visit 👉 https://prizebond-bot.onrender.com 👈 to activate it. ♻️
+♻️ If you find the chatbot inactive, please visit 👉 [https://prizebond-bot.onrender.com](https://prizebond-bot.onrender.com) 👈 to activate it. ♻️
     `;
-    bot.sendMessage(chatId, helpMessage);
+    bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
 });
 
 console.log('Bot is running...');
-// Add this at the end of your script
+
+// Express server for Render.com
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Prize Bond Bot</title>
-    </head>
-    <body>
-      <h1>🎉 Prize Bond Checker Bot</h1>
-      <p>This bot is running and ready to check your prize bond numbers!</p>
-      <p>Use it in Telegram: <a href="https://t.me/prizebondbot">@prizebondbot</a></p>
-    </body>
-    </html>
-  `);
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Prize Bond Bot</title>
+        </head>
+        <body>
+            <h1>🎉 Prize Bond Checker Bot</h1>
+            <p>This bot is running and ready to check your prize bond numbers!</p>
+            <p>Use it in Telegram: <a href="https://t.me/prizebondbot">@prizebondbot</a></p>
+        </body>
+        </html>
+    `);
 });
 
 // Bind to 0.0.0.0 and the PORT environment variable
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
-
-
-
-
-
-
-
