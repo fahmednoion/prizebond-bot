@@ -366,10 +366,19 @@ bot.onText(/\/draw (\d+)/, (msg, match) => {
 bot.onText(/\/author/, (msg) => {
     const chatId = msg.chat.id;
     const author = `
-📌 **To Know About Author Visit Website:**
-https://prizebond.free.nf
+**To Know About Author Visit Website:**
+⚜️ https://prizebond.free.nf ⚜️
     `;
     bot.sendMessage(chatId, author);
+});
+
+// Start command
+bot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    const start = `
+**Type or press on 👉 /help 👈 to start**
+    `;
+    bot.sendMessage(chatId, start);
 });
 
 // Help command
@@ -417,6 +426,7 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
 
 
 
