@@ -362,19 +362,20 @@ bot.onText(/\/start/, (msg) => {
 
 // Help command
 bot.onText(/\/help/, (msg) => {
-  const chatId = msg.chat.id;
-  const helpMessage = `
+    const chatId = msg.chat.id;
+    const helpMessage = `
 📌 **Available Commands:**
-/storeprizebond <numbers> - Store your prize bond numbers (comma-separated).
+
+/storeprizebond <numbers> - Store your prize bond numbers (comma-separated, up to 10 digits each).
 /myprizebond - View your stored prize bond numbers.
 /delete <numbers> - Delete specific prize bond numbers (comma-separated) or use "all" to delete all.
 /checkmyprizebond - Check your stored prize bond numbers against all draws.
-/check <numbers> - Check specific prize bond numbers (comma-separated) against all draws.
+/check <numbers> - Check specific prize bond numbers (comma-separated, up to 10 digits each) against all draws.
 /draws - List all available prize bond draws.
 /draw <draw_number> - View details of a specific draw (e.g., /draw 111).
-To Activate Inactive chatbot, please visit https://prizebond-bot.onrender.com
-  `;
-  bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
+** To Activate the inactive chatbot, please visit https://prizebond-bot.onrender.com **
+    `;
+    bot.sendMessage(chatId, helpMessage);
 });
 
 console.log('Bot is running...');
@@ -403,4 +404,5 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
 
