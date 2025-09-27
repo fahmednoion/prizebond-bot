@@ -317,6 +317,7 @@ bot.onText(/\/author/, (msg) => {
     const author = `
 **To Know About Author Visit Website:**
 ⚜️ https://prizebond.free.nf ⚜️
+ To activate the inactive chatbot, please visit 👉 https://prizebond-bot.onrender.com 👈
     `;
     bot.sendMessage(chatId, author, { parse_mode: 'Markdown' });
 });
@@ -343,8 +344,7 @@ bot.onText(/\/help/, (msg) => {
 /draws - List all available prize bond draws.
 /draw <draw_number> - View details of a specific draw (e.g., /draw 111).
 /author - Know about the author.
-/help - Show this help message.
-♻️ To activate the inactive chatbot, please visit 👉 https://prizebond-bot.onrender.com 👈 
+/help - Show this help message. 
     `;
     bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
 });
@@ -376,6 +376,7 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
 
 
 
