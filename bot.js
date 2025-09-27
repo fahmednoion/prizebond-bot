@@ -344,7 +344,7 @@ bot.onText(/\/help/, (msg) => {
 /draw <draw_number> - View details of a specific draw (e.g., /draw 111).
 /author - Know about the author.
 /help - Show this help message.
-♻️ To inactive chatbot inactive, please visit 👉 https://prizebond-bot.onrender.com 👈 
+♻️ To activate the inactive chatbot, please visit 👉 https://prizebond-bot.onrender.com 👈 
     `;
     bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
 });
@@ -376,5 +376,6 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
 
 
