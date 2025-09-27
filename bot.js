@@ -270,7 +270,7 @@ bot.onText(/\/checkmyprizebond/, async (msg) => {
     const userNumbers = snapshot.val() || [];
 
     if (userNumbers.length === 0) {
-      bot.sendMessage(chatId, "😢 You have no stored numbers.");
+      bot.sendMessage(chatId, "😢 You have no stored Prize Bond numbers to check.");
       return;
     }
 
@@ -312,6 +312,46 @@ bot.onText(/\/checkmyprizebond/, async (msg) => {
   }
 });
 
+// Command to check specific prize bond numbers against all draws
+bot.onText(/\/check (.+)/, (msg, match) => {
+    const chatId = msg.chat.id;
+    const inputNumbers = match[1].split(',').map(num => num.trim());
+    let response = "";
+    inputNumbers.forEach(number => {
+        let foundInAnyDraw = false;
+        let drawResponse = `📜 **Results for Prize Bond Number ${number}:**\n`;
+        prizeBondDraws.forEach(draw => {
+            let found = false;
+            let prizeLevel = "";
+            if (draw.firstPrize.includes(number)) {
+                found = true;
+                prizeLevel = "1st Prize";
+            } else if (draw.secondPrize.includes(number)) {
+                found = true;
+                prizeLevel = "2nd Prize";
+            } else if (draw.thirdPrize.includes(number)) {
+                found = true;
+                prizeLevel = "3rd Prize";
+            } else if (draw.fourthPrize.includes(number)) {
+                found = true;
+                prizeLevel = "4th Prize";
+            } else if (draw.fifthPrize.includes(number)) {
+                found = true;
+                prizeLevel = "5th Prize";
+            }
+            if (found) {
+                foundInAnyDraw = true;
+                drawResponse += `🎉 **${draw.drawNumber}**: **Match found!** (${prizeLevel})\n`;
+            }
+        });
+        if (!foundInAnyDraw) {
+            drawResponse += `😢 No match found in any draw.\n`;
+        }
+        response += drawResponse + "\n";
+    });
+    bot.sendMessage(chatId, response);
+});
+
 // Command to list all available draws
 bot.onText(/\/draws/, (msg) => {
   const chatId = msg.chat.id;
@@ -345,8 +385,7 @@ bot.onText(/\/author/, (msg) => {
   const chatId = msg.chat.id;
   const author = `
 ⚜️ Faysal Ahmed Noion ⚜️
-**To Know Details About Author Visit Website:**
-⚜️ https://prizebond.free.nf ⚜️
+**To Know Details About Author Visit Website: https://prizebond.free.nf **
   `;
   bot.sendMessage(chatId, author, { parse_mode: 'Markdown' });
 });
@@ -366,7 +405,7 @@ bot.onText(/\/help/, (msg) => {
     const helpMessage = `
 📌 **Available Commands:**
 
-/storeprizebond <numbers> - Store your prize bond numbers (comma-separated, up to 10 digits each).
+/storeprizebond <numbers> - Store your prize bond numbers (comma-separated).
 /myprizebond - View your stored prize bond numbers.
 /delete <numbers> - Delete specific prize bond numbers (comma-separated) or use "all" to delete all.
 /checkmyprizebond - Check your stored prize bond numbers against all draws.
@@ -404,5 +443,6 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
 
 
