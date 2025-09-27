@@ -413,5 +413,11 @@ app.get('/', (req, res) => {
   `);
 });
 
+// Bind to 0.0.0.0 and the PORT environment variable
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+
 
 
