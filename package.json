@@ -10,5 +10,11 @@
   "license": "MIT",
   "dependencies": {
     "node-telegram-bot-api": "^0.61.0"
+  },
+
+{
+  "dependencies": {
+    "firebase-admin": "^11.0.0",
+    "node-telegram-bot-api": "^0.61.0"
   }
 }
