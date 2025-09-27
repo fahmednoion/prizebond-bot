@@ -139,8 +139,8 @@ const prizeBondDraws = [
     // Add more draws here as needed
 ];
 
-// File to store user data
-const userDataFile = 'userData.json';
+// Store user data in memory
+let userData = {};
 
 // Load user data from file
 let userData = {};
@@ -157,10 +157,8 @@ function saveUserData() {
 bot.onText(/\/storeprizebond (.+)/, (msg, match) => {
     const chatId = msg.chat.id.toString();
     const inputNumbers = match[1].split(',').map(num => num.trim());
-
     const validNumbers = [];
     const invalidNumbers = [];
-
     inputNumbers.forEach(number => {
         if (/^\d{1,10}$/.test(number)) {
             validNumbers.push(number);
@@ -168,40 +166,31 @@ bot.onText(/\/storeprizebond (.+)/, (msg, match) => {
             invalidNumbers.push(number);
         }
     });
-
     if (invalidNumbers.length > 0) {
         bot.sendMessage(chatId, `🚫 Invalid prize bond numbers (must be up to 10 digits): ${invalidNumbers.join(', ')}`);
     }
-
     if (validNumbers.length === 0) {
         bot.sendMessage(chatId, "🚫 No valid prize bond numbers provided.");
         return;
     }
-
     if (!userData[chatId]) {
         userData[chatId] = [];
     }
-
     if (userData[chatId].length + validNumbers.length > 100) {
         bot.sendMessage(chatId, "🚫 You can store a maximum of 100 prize bond numbers.");
         return;
     }
-
     userData[chatId] = [...new Set([...userData[chatId], ...validNumbers])];
-    saveUserData();
-
     bot.sendMessage(chatId, `📝 Your prize bond numbers have been stored: ${validNumbers.join(', ')}`);
 });
 
 // Command to view stored prize bond numbers
 bot.onText(/\/myprizebond/, (msg) => {
     const chatId = msg.chat.id.toString();
-
     if (!userData[chatId] || userData[chatId].length === 0) {
         bot.sendMessage(chatId, "😢 You have no stored prize bond numbers. Use `/storeprizebond <numbers>` to store some.");
         return;
     }
-
     bot.sendMessage(chatId, `📋 Your stored prize bond numbers:\n\n${userData[chatId].join(', ')}`);
 });
 
@@ -209,23 +198,17 @@ bot.onText(/\/myprizebond/, (msg) => {
 bot.onText(/\/delete (.+)/, (msg, match) => {
     const chatId = msg.chat.id.toString();
     const input = match[1].trim();
-
     if (!userData[chatId] || userData[chatId].length === 0) {
         bot.sendMessage(chatId, "😢 You have no stored prize bond numbers to delete.");
         return;
     }
-
     if (input.toLowerCase() === 'all') {
         userData[chatId] = [];
-        saveUserData();
         bot.sendMessage(chatId, "🗑️ All your stored prize bond numbers have been deleted.");
         return;
     }
-
     const numbersToDelete = input.split(',').map(num => num.trim());
     userData[chatId] = userData[chatId].filter(num => !numbersToDelete.includes(num));
-    saveUserData();
-
     bot.sendMessage(chatId, `🗑️ Deleted prize bond numbers: ${numbersToDelete.join(', ')}`);
 });
 
@@ -427,6 +410,7 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
 
 
 
