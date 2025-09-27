@@ -398,10 +398,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Bot is running!');
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Prize Bond Bot</title>
+    </head>
+    <body>
+      <h1>🎉 Prize Bond Checker Bot</h1>
+      <p>This bot is running and ready to check your prize bond numbers!</p>
+      <p>Use it in Telegram: <a href="https://t.me/prizebondbot">@prizebondbot</a></p>
+    </body>
+    </html>
+  `);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+
 
